@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"github.com/gin-gonic/gin"
 	"database/sql"
-	"github.com/go-sql-driver/mysql"
 )
 
 func dbConn(maxConnections int) *sql.DB {
@@ -50,7 +49,35 @@ func getUsers(c *gin.Context) {
 	dbError(err)
 	defer smt.Close()
 	users, err := smt.Exec()
+	dbError(err)
 	c.IndentedJSON(http.StatusOK, users)
+}
+
+func getUserById(c *gin.Context) {
+	//get url param
+	id := c.Param("id")
+
+	db := dbConn(10)
+	defer dbClose(db)
+	smt, err := db.Prepare("SELECT * FROM users WHERE rowid = ?")
+	dbError(err)
+	defer smt.Close()
+	smt.Exec(id)
+}
+
+func setUser(c *gin.Context) {
+	var newUser user
+
+	if err := c.BindJSON(&newUser); err != nil {
+		return 
+	}
+
+	db := dbConn(10)
+	defer dbClose(db)
+	smt, err := db.Prepare("INSERT INTO users (name, pw, email) VALUES (?, ?, ?)")
+	dbError(err)
+	defer smt.Close()
+	smt.Exec(newUser)
 }
 
 
@@ -59,6 +86,8 @@ func main() {
 	router := gin.Default()
 	//define routes
 	router.GET("/user", getUsers)
+	router.GET("/user/:id", getUserById)
+	router.POST("/user", setUser)
 	fmt.Println("Starting Rest Api on port 8080")
 	//start server
 	router.Run("127.0.0.1:8080")
